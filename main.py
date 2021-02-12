@@ -13,9 +13,9 @@ import utils.scheduler as Scheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import config
+import utils.time_lessons as time_lesson
 
 API_TOKEN = config.Auth.API_TOKEN
-
 
 # Логи
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +30,8 @@ client = MongoClient('mongodb+srv://admin:' + str(config.Auth.password_db) + "@c
 db = client['Data']
 UsersDB = db["Users"]
 GroupDB = db["Group"]
+Scheduler.get_pandas("")
+
 
 def Check_Group(text):
     if GroupDB.find_one({"group":text}) is None:
@@ -51,8 +53,9 @@ async def send_welcome(message: types.Message):
         with open(config.FileLocation.cmd_welcome, 'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True)
     else:
-        await message.reply("<b> Привет, рад тебя видеть снова </b>", parse_mode='HTML', disable_web_page_preview=True)
+        await bot.send_message(message.chat.id, "<b> Привет, рад тебя видеть снова </b>", parse_mode='HTML', disable_web_page_preview=True)
         await Group.complete.set()
+        await menu(message)
     
 # Внесение группы  
 @dp.message_handler(state=Group.group_select)
@@ -62,7 +65,7 @@ async def select_group(message: types.Message):
         markup.add("Да", "Нет")
         with open(config.FileLocation.cmd_group,'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
-        await Group.next()
+        await Group.sub.set()
         UsersDB.insert_one({"chat_id": message.chat.id, "group": message.text, "sub":"True"})
         
     else:
@@ -76,10 +79,11 @@ async def select_sub(message: types.Message):
     else:
         UsersDB.find_one_and_update({"chat_id":message.chat.id, "sub":"False" })
     markup = types.ReplyKeyboardRemove()
-    await Group.next()
-    menu(message)
+    await Group.complete.set()
+    await menu(message)
     # Конец регистрации
 
+# Главное меню
 dp.message_handler(state=Group.complete)
 async def menu(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
@@ -87,5 +91,16 @@ async def menu(message: types.Message):
     with open(config.FileLocation.cmd_menu,'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
 
+@dp.message_handler(state=Group.complete, commands=['today','Пары на сегодня'])
+async def scheduler_today(message: types.Message):
+    Lessons = "<b> Пары на сегодня </b>" 
+    group = UsersDB.find_one({"chat_id":message.chat.id})["group"]
+   
+    for i in range(1,12):
+        if Scheduler.get_lesson(time_lesson.todayIs()+i,group) == "nan":
+            Lessons
+        else: #ДОРАБОТАТЬ ВРЕМЯ ПАР С ЭМОДЗИ И ОФОРМЛЕНИЕ
+            Lessons = Lessons  + " " + Scheduler.get_lesson(time_lesson.todayIs()+i,group) + " " + Scheduler.get_lesson_type(time_lesson.todayIs()+i,group) + "  \n " + Scheduler.get_lesson_cabinet(time_lesson.todayIs()+i,group) + " " + Scheduler.get_lesson_teacher(time_lesson.todayIs()+i,group) + "\n"       
+    await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
