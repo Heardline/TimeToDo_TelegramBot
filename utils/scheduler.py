@@ -1,5 +1,5 @@
 import pandas
-
+import utils.time_lessons as time_lesson
 def get_pandas(univ):
     return pandas.read_excel("data/xlsx/ИНТЕГУ_17-20.xlsx", sheet_name='Sheet1')
 lessons = [("","","")]
@@ -21,3 +21,9 @@ def get_lesson_teacher(time_row,group):
     return str(data.iloc[time_row][data.columns.get_loc(group)+2])
 def get_lesson_cabinet(time_row,group):
     return str(data.iloc[time_row][data.columns.get_loc(group)+3])
+
+def ready_lesson(Lessons,group,number,time_row):
+    # Время + название + тип + кабинет + преподаватель
+    lesson = Lessons + time_lesson.NumberToEmoji(time_row) + "\n" + get_lesson(time_lesson.todayIs()+number,group) + " | " + get_lesson_type(time_lesson.todayIs()+number,group)  +  " | "  + get_lesson_cabinet(time_lesson.todayIs()+number,group) + " \n " + get_lesson_teacher(time_lesson.todayIs()+number,group) + "\n"
+    return lesson
+    
