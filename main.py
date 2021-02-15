@@ -88,39 +88,81 @@ async def select_sub(message: types.Message):
 dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
-    markup.add("Пары на сегодня", "На этой неделе", "Мои задачи", "Настройки")
+    markup.add("⏲Пары на сегодня", "📆На завтра", "📅На этой неделе","📋Мои задачи","🛠Настройки")
     with open(config.FileLocation.cmd_menu,'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
+# Для тестов           
 @dp.message_handler(commands=['test'])
 async def test(message: types.Message):
     await notif_morning()
 
+# Пары на сегодня
 @dp.message_handler(commands=['day','Пары на сегодня'])
 async def scheduler_today(message: types.Message):
-    Lessons = "<b> Пары на " + str(time_lesson.TodayToEmoji()) + str(time_lesson.NumberOfMonth()) + " неделя. </b> \n" 
+    Lessons = "<b> Пары на " + str(time_lesson.TodayToEmoji(0)) + str(time_lesson.NumberOfMonth()) + " неделя. </b> \n" 
     group = UsersDB.find_one({"chat_id":message.chat.id})["group"]
-    for i in range(1,6):
-        if Scheduler.get_lesson(time_lesson.todayIs()+i,group) == "nan":
+    check_lesson = False # Проверяет, есть ли вообще пары на сегодня
+    for i in range(1,7):
+        if time_lesson.NumberOfMonth() % 2 == 0: # Четная/ не четная неделя
+            a = i*2
+        else:
+            a = (i*2)-1
+        if Scheduler.get_lesson(time_lesson.todayIs()+a,group) == "nan" or " ":
             pass
         else: 
-            # Четная/ не четная неделя
-            if time_lesson.NumberOfMonth() % 2 == 0: 
-                a = i*2
-            else:
-                a = (i*2)-1
-                # Время пары, название, тип и кабинет
-            Lessons = Lessons + time_lesson.NumberToEmoji(i) + "\n" + Scheduler.get_lesson(time_lesson.todayIs()+a,group) + " | " + Scheduler.get_lesson_type(time_lesson.todayIs()+a,group)  +  " | " + Scheduler.get_lesson_cabinet(time_lesson.todayIs()+a,group)
-                # Преподаватель и еще что нибудь добавить.
-            Lessons = Lessons + " \n" + Scheduler.get_lesson_teacher(time_lesson.todayIs()+a,group) + "\n"      
+            check_lesson = True
+            Lessons = Scheduler.ready_lesson(Lessons,group, a,i)  
+    if check_lesson is False:
+        Lessons = "<b>Сегодня нету пар </b> ✨🎉\n Иди гуляй)"
     await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
+
+@dp.message_handler(commands=['tomorow','Пары на завтра'])
+async def scheduler_today(message: types.Message):
+    Lessons = "<b> Пары на " + str(time_lesson.TodayToEmoji(1)) + str(time_lesson.NumberOfMonth()) + " неделя. </b> \n" 
+    group = UsersDB.find_one({"chat_id":message.chat.id})["group"]
+    check_lesson = False # Проверяет, есть ли вообще пары на сегодня
+    for i in range(1,7):
+        if time_lesson.NumberOfMonth() % 2 == 0: 
+            a = i*2 + 12
+        else:
+            a = (i*2)-1 + 12
+        if Scheduler.get_lesson(time_lesson.todayIs()+a,group) == "nan":
+            pass
+        else: 
+            check_lesson = True
+            # Четная/ не четная неделя
+            Lessons = Scheduler.ready_lesson(Lessons,group, a,i)
+    if check_lesson is False:
+        Lessons = "<b>Завтра нету пар </b> ✨🎉\n Можешь спать и гулять))"
+    await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
+
+
 # Уведомлялки утром
 async def notif_morning():
     for user in UsersDB.find({"sub":"True"}):
         #try:
         group = UsersDB.find_one({"chat_id":user["chat_id"]})["group"]
-        Lesson = "<b> Доброе утро </b> \n Сегодня у тебя пары:\n" +  time_lesson.NumberToEmoji(2) + "\n" + Scheduler.get_lesson(time_lesson.todayIs()+2,group) + " | " + Scheduler.get_lesson_type(time_lesson.todayIs()+2,group)  +  " | " + Scheduler.get_lesson_cabinet(time_lesson.todayIs()+2,group)
-                # Преподаватель и еще что нибудь добавить.
-        Lesson = Lesson + " \n" + Scheduler.get_lesson_teacher(time_lesson.todayIs()+2,group) + "\n"
+        Lesson = "<b> Доброе утро! </b> \n "
+        a = 0 #Локальная переменная - формирует адрес исходя из четной/нечетной неделе и когда.
+        if Scheduler.get_lesson(time_lesson.todayIs()+1,group) == "nan":
+            Lesson = Lesson + " <code> Ты везунчик, можешь немного поспать, к первой не надо. </code> \n"
+            if Scheduler.get_lesson(time_lesson.todayIs()+2,group) == "nan":
+                Lesson = Lesson + "Ко второй тоже. Вообще топ.\n"
+        Lesson = Lesson + "Сегодня у тебя: \n"
+        check_lesson = False
+        for i in range(1,7):
+            if time_lesson.NumberOfMonth() % 2 == 0: 
+                 a = i*2
+            else:
+                a = (i*2)-1
+             # Четная/ не четная неделя
+            if Scheduler.get_lesson(time_lesson.todayIs()+a,group) == "nan":
+                pass
+            else: 
+                check_lesson = True
+                Lesson = Scheduler.ready_lesson(Lesson,group,a,i)
+        if check_lesson is False:
+            Lesson = "<b>Сегодня нету пар </b> ✨🎉\n Спи спокойно и иди гуляй)"       
         await bot.send_message(user["chat_id"], Lesson, parse_mode='HTML', disable_web_page_preview=True)
 
 
