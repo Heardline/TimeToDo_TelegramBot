@@ -8,6 +8,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
+from numpy import exp
 from pymongo import MongoClient
 import utils.scheduler as Scheduler
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -25,7 +26,7 @@ bot = Bot(token=API_TOKEN)
 #storage = MongoStorage(host=config.MongoAuth.host, port=27017, db_name='users', username="admin", password=config.MongoAuth.password) #Не работает с библиотекой
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
-#Инициализируем базу данных(Mongo проста и бесплатная)
+#Инициализируем базу данных
 client = MongoClient('mongodb+srv://admin:' + str(config.Auth.password_db) + "@cluster0.cy3ca.mongodb.net/", 27017)
 db = client['Data']
 UsersDB = db["Users"]
@@ -56,7 +57,7 @@ async def send_welcome(message: types.Message):
         await bot.send_message(message.chat.id, "<b> Привет, рад тебя видеть снова </b>", parse_mode='HTML', disable_web_page_preview=True)
         await Group.complete.set()
         await menu(message)
-    
+
 # Внесение группы  
 @dp.message_handler(state=Group.group_select)
 async def select_group(message: types.Message):
@@ -84,23 +85,50 @@ async def select_sub(message: types.Message):
     # Конец регистрации
 
 # Главное меню
-dp.message_handler(state=Group.complete)
+dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
-    markup.add("Что у меня сегодня", "На этой неделе", "Мои задачи", "Настройки")
+    markup.add("Пары на сегодня", "На этой неделе", "Мои задачи", "Настройки")
     with open(config.FileLocation.cmd_menu,'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
+@dp.message_handler(commands=['test'])
+async def test(message: types.Message):
+    await notif_morning()
 
-@dp.message_handler(state=Group.complete, commands=['today','Пары на сегодня'])
+@dp.message_handler(commands=['day','Пары на сегодня'])
 async def scheduler_today(message: types.Message):
-    Lessons = "<b> Пары на сегодня </b>" 
+    Lessons = "<b> Пары на " + str(time_lesson.TodayToEmoji()) + str(time_lesson.NumberOfMonth()) + " неделя. </b> \n" 
     group = UsersDB.find_one({"chat_id":message.chat.id})["group"]
-   
-    for i in range(1,12):
+    for i in range(1,6):
         if Scheduler.get_lesson(time_lesson.todayIs()+i,group) == "nan":
-            Lessons
-        else: #ДОРАБОТАТЬ ВРЕМЯ ПАР С ЭМОДЗИ И ОФОРМЛЕНИЕ
-            Lessons = Lessons  + " " + Scheduler.get_lesson(time_lesson.todayIs()+i,group) + " " + Scheduler.get_lesson_type(time_lesson.todayIs()+i,group) + "  \n " + Scheduler.get_lesson_cabinet(time_lesson.todayIs()+i,group) + " " + Scheduler.get_lesson_teacher(time_lesson.todayIs()+i,group) + "\n"       
+            pass
+        else: 
+            # Четная/ не четная неделя
+            if time_lesson.NumberOfMonth() % 2 == 0: 
+                a = i*2
+            else:
+                a = (i*2)-1
+                # Время пары, название, тип и кабинет
+            Lessons = Lessons + time_lesson.NumberToEmoji(i) + "\n" + Scheduler.get_lesson(time_lesson.todayIs()+a,group) + " | " + Scheduler.get_lesson_type(time_lesson.todayIs()+a,group)  +  " | " + Scheduler.get_lesson_cabinet(time_lesson.todayIs()+a,group)
+                # Преподаватель и еще что нибудь добавить.
+            Lessons = Lessons + " \n" + Scheduler.get_lesson_teacher(time_lesson.todayIs()+a,group) + "\n"      
     await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
+# Уведомлялки утром
+async def notif_morning():
+    for user in UsersDB.find({"sub":"True"}):
+        #try:
+        group = UsersDB.find_one({"chat_id":user["chat_id"]})["group"]
+        Lesson = "<b> Доброе утро </b> \n Сегодня у тебя пары:\n" +  time_lesson.NumberToEmoji(2) + "\n" + Scheduler.get_lesson(time_lesson.todayIs()+2,group) + " | " + Scheduler.get_lesson_type(time_lesson.todayIs()+2,group)  +  " | " + Scheduler.get_lesson_cabinet(time_lesson.todayIs()+2,group)
+                # Преподаватель и еще что нибудь добавить.
+        Lesson = Lesson + " \n" + Scheduler.get_lesson_teacher(time_lesson.todayIs()+2,group) + "\n"
+        await bot.send_message(user["chat_id"], Lesson, parse_mode='HTML', disable_web_page_preview=True)
+
+
+    
+    
+
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(notif_morning, 'cron', id='notif_morning', replace_existing=True, hour=8, minute = 40)
+    scheduler.start()
