@@ -1,7 +1,7 @@
 import os,sys,datetime,time
 emojiNumber = {
     1:"1️⃣ <b>9:00 - 10:30</b>",
-    2:"2️⃣ <b>10:40 - 12:40</b>",
+    2:"2️⃣ <b>10:40 - 12:10</b>",
     3:"3️⃣ <b>12:40 - 14:10</b>",
     4:"4️⃣ <b>14:20 - 15:50</b>", 
     5:"5️⃣ <b>16:20 - 17:50</b>",
@@ -16,6 +16,16 @@ emojiToday = {
     6:"Суббота🍻",
     7:"✨Воскресенье",
 }
+scheduler_dict = {
+    10: 2,
+    12: 3,
+    14: 4,
+    16: 5,
+    17: 6
+}
+
+def convertHourtoLesson():
+    return scheduler_dict[datetime.datetime.now().hour]
 
 
 def NumberOfMonth():

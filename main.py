@@ -11,8 +11,8 @@ from aiogram.dispatcher.filters import Text
 from numpy import exp
 from pymongo import MongoClient
 import utils.scheduler as Scheduler
-from apscheduler.schedulers.background import BackgroundScheduler
-
+import aioschedule
+import asyncio
 import config
 import utils.time_lessons as time_lesson
 
@@ -32,6 +32,7 @@ db = client['Data']
 UsersDB = db["Users"]
 GroupDB = db["Group"]
 Scheduler.get_pandas("")
+
 
 
 def Check_Group(text):
@@ -88,13 +89,13 @@ async def select_sub(message: types.Message):
 dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
-    markup.add("⏲Пары на сегодня", "📆На завтра", "📅На этой неделе","📋Мои задачи","🛠Настройки")
+    markup.add("Сегодня ⏲", "Завтра 📆", "Неделя 📅","Мои задачи 📋","Настройки 🛠")
     with open(config.FileLocation.cmd_menu,'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
 # Для тестов           
 @dp.message_handler(commands=['test'])
 async def test(message: types.Message):
-    await notif_morning()
+    await notif_every_lesson()
 
 # Пары на сегодня
 @dp.message_handler(commands=['day','Пары на сегодня'])
@@ -144,10 +145,13 @@ async def notif_morning():
         group = UsersDB.find_one({"chat_id":user["chat_id"]})["group"]
         Lesson = "<b> Доброе утро! </b> \n "
         a = 0 #Локальная переменная - формирует адрес исходя из четной/нечетной неделе и когда.
-        if Scheduler.get_lesson(time_lesson.todayIs()+1,group) == "nan":
+        if time_lesson.NumberOfMonth() % 2 == 0:
+            a = 1
+        if Scheduler.get_lesson(time_lesson.todayIs()+1+a,group) == "nan":
             Lesson = Lesson + " <code> Ты везунчик, можешь немного поспать, к первой не надо. </code> \n"
-            if Scheduler.get_lesson(time_lesson.todayIs()+2,group) == "nan":
+            if Scheduler.get_lesson(time_lesson.todayIs()+3+a,group) == "nan":
                 Lesson = Lesson + "Ко второй тоже. Вообще топ.\n"
+        a = 0
         Lesson = Lesson + "Сегодня у тебя: \n"
         check_lesson = False
         for i in range(1,7):
@@ -165,12 +169,42 @@ async def notif_morning():
             Lesson = "<b>Сегодня нету пар </b> ✨🎉\n Спи спокойно и иди гуляй)"       
         await bot.send_message(user["chat_id"], Lesson, parse_mode='HTML', disable_web_page_preview=True)
 
+# Уведомлять после каждой пары
+async def notif_every_lesson():
+    for user in UsersDB.find({"sub":"True"}):
+        #try:
+        group = UsersDB.find_one({"chat_id":user["chat_id"]})["group"]
+        Lesson = "<b> У тебя по расписанию дальше: </b> \n "
+        a = 0 #Локальная переменная - формирует адрес исходя из четной/нечетной неделе и когда.
+        now = time_lesson.convertHourtoLesson()
+        if Scheduler.get_lesson(time_lesson.todayIs()+1+now,group) == "nan":
+            break
+        if time_lesson.NumberOfMonth() % 2 == 0: 
+            a = now*2
+        else:
+            a = (now*2)-1
+             # Четная/ не четная неделя
+        if Scheduler.get_lesson(time_lesson.todayIs()+a,group) == "nan":
+            pass
+        else: 
+            Lesson = Scheduler.ready_lesson(Lesson,group,a,now)     
+        await bot.send_message(user["chat_id"], Lesson, parse_mode='HTML', disable_web_page_preview=True)
+  
 
-    
-    
+async def scheduler():
+    aioschedule.every().day.at("8:40").do(notif_morning)
+    aioschedule.every().day.at("10:30").do(notif_every_lesson)
+    aioschedule.every().day.at("12:30").do(notif_every_lesson)
+    aioschedule.every().day.at("14:10").do(notif_every_lesson)
+    aioschedule.every().day.at("16:10").do(notif_every_lesson)
+    aioschedule.every().day.at("17:50").do(notif_every_lesson)
+    while True:
+        await aioschedule.run_pending()
+        await asyncio.sleep(1)
+
+async def on_startup(x):
+    asyncio.create_task(scheduler())
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(notif_morning, 'cron', id='notif_morning', replace_existing=True, hour=8, minute = 40)
-    scheduler.start()
+    executor.start_polling(dp, skip_updates=False, on_startup=on_startup)    
+
