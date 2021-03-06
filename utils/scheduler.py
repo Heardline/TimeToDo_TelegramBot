@@ -24,6 +24,6 @@ def get_lesson_cabinet(time_row,group):
 
 def ready_lesson(Lessons,group,number,time_row):
     # Время + название + тип + кабинет + преподаватель
-    lesson = Lessons + time_lesson.NumberToEmoji(time_row) + "\n" + get_lesson(time_lesson.todayIs()+number,group) + " | " + get_lesson_type(time_lesson.todayIs()+number,group)  +  " | "  + get_lesson_cabinet(time_lesson.todayIs()+number,group) + " \n " + get_lesson_teacher(time_lesson.todayIs()+number,group) + "\n"
+    lesson = Lessons + time_lesson.NumberToEmoji(time_row) + "\n" + get_lesson(time_lesson.todayIs()+number,group) + " | " + get_lesson_type(time_lesson.todayIs()+number,group)  +  " | "  + get_lesson_cabinet(time_lesson.todayIs()+number,group) + " \n <code>" + get_lesson_teacher(time_lesson.todayIs()+number,group) + "</code>\n"
     return lesson
     
