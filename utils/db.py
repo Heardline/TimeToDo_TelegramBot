@@ -19,11 +19,10 @@ except (Exception, Error) as error:
         print("Ошибка при работе с PostgreSQL", error)
 
 def setup_notify(boolen,telegram_id):
-    cursor.execute("Update students set notify = " + boolen + " WHERE telegram_id =  %s",telegram_id)
-    if cursor.fetchone():
-        return True
-    else:
-        return False
+    try:
+        cursor.execute(f"Update students set notify = {boolen} WHERE telegram_id = '{telegram_id}';")
+    except (Exception, Error) as error:
+        print("Ошибка при работе с PostgreSQL setup_notify", error)
 
 def check_group(group):
     cursor.execute("SELECT id FROM groups WHERE name = '" + group + "';")
@@ -49,8 +48,8 @@ def update_data():
 
 def import_group(group,univercity):
     try:
-        create_table_query = '''INSERT INTO groups ( name, univercity) VALUES (%s, %s);'''
-        cursor.execute(create_table_query,(group,univercity))
+        execute_com = '''INSERT INTO groups ( name, univercity) VALUES (%s, %s);'''
+        cursor.execute(execute_com,(group,univercity))
         connection.commit()
         return True
 
@@ -61,8 +60,8 @@ def import_group(group,univercity):
 
 def add_user(group,telegram_id):
     try:
-        create_table_query = f"INSERT INTO students (grp,telegram_id, notify) VALUES ({group},{telegram_id}, True);"
-        cursor.execute(create_table_query)
+        execute_com = f"INSERT INTO students (grp,telegram_id, notify) VALUES ('{group}','{telegram_id}', True);"
+        cursor.execute(execute_com)
         connection.commit()
         print(f"Пользователь {telegram_id} успешно зарегестирован в PostgreSQL")
         return True
@@ -75,8 +74,8 @@ def get_group(telegram_id):
         cursor = connection.cursor()
         cursor.execute(f"SELECT grp FROM groups WHERE telegram_id = {telegram_id};")
         id_group = cursor.fetchone()
-        create_table_query = '''SELECT name FROM groups WHERE id = %s;'''
-        cursor.execute(create_table_query,id_group)
+        execute_com = '''SELECT name FROM groups WHERE id = %s;'''
+        cursor.execute(execute_com,id_group)
         connection.commit()
         print(f"Пользователь {telegram_id} успешно создан в PostgreSQL")
         return cursor.fetchone()
@@ -88,8 +87,8 @@ def get_group(telegram_id):
 def init_db():
     try:
         cursor = connection.cursor()
-        create_table_query = ''''''
-        cursor.execute(create_table_query)
+        execute_com = ''''''
+        cursor.execute(execute_com)
         connection.commit()
         print("Таблица успешно создана в PostgreSQL")
 
@@ -99,11 +98,11 @@ def init_db():
 def import_lesson(name,teacher,room,type,time, group):
     try:
         cursor = connection.cursor()
-        create_table_query = '''INSERT INTO lessons (subj, prep,room,type,tstart,day,odd,grp) VALUES (%s, %s,%s,%s,%s,%s,%s,%s);'''
+        execute_com = '''INSERT INTO lessons (subj, prep,room,type,tstart,day,odd,grp) VALUES (%s, %s,%s,%s,%s,%s,%s,%s);'''
         if (time %2) == 1:
             odd = 0
         else: odd = 1
-        cursor.execute(create_table_query,(str(name),str(teacher),str(room),str(type),time%12, time//12,odd, str(group)))
+        cursor.execute(execute_com,(str(name),str(teacher),str(room),str(type),time%12, time//12,odd, str(group)))
         #print(name,teacher,room,type,time%12," ", time//12, " ",odd)
         connection.commit()
     except (Exception, Error) as error:
@@ -112,8 +111,8 @@ def import_lesson(name,teacher,room,type,time, group):
 def remove_data():
     try:
         cursor = connection.cursor()
-        create_table_query = '''DELETE from lessons;'''
-        cursor.execute(create_table_query)
+        execute_com = '''DELETE from lessons;'''
+        cursor.execute(execute_com)
         #print(name,teacher,room,type,time%12," ", time//12, " ",odd)
         connection.commit()
     except (Exception, Error) as error:
@@ -138,8 +137,8 @@ def import_from_xlsx():
 def get_lesson(time_row,group,type):
     try:
         cursor = connection.cursor()
-        create_table_query = f"SELECT {type} FROM lessons WHERE group = {group} and tstart = {time_row%12} and day = {time_row//12};"
-        cursor.execute(create_table_query)
+        execute_com = f"SELECT {type} FROM lessons WHERE group = {group} and tstart = {time_row%12} and day = {time_row//12};"
+        cursor.execute(execute_com)
         #print(name,teacher,room,type,time%12," ", time//12, " ",odd)
         return cursor.fetchone()
     except (Exception, Error) as error:
