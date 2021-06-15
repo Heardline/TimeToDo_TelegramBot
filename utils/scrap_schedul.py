@@ -38,9 +38,8 @@ def get_schedul_exam():
             schedul_urls.append(schedul_url)
     return schedul_urls
 
-def donwload_xlsx():
+def download_xlsx():
     for schedul_url in get_schedul():
         resp = requests.get(schedul_url)
         with open("data/xlsx/"+schedul_url.split("/")[-1],'wb') as output:
             output.write(resp.content)
-donwload_xlsx()
