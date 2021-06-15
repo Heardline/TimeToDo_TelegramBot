@@ -48,7 +48,7 @@ class TaskCreate(StatesGroup):
 # Привествие пользователя
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
-    if pdb.check_user(message.chat.id):
+    if pdb.check_user(message.chat.id) is False:
         await Group.group_select.set()
         with open(config.FileLocation.cmd_welcome, 'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True)
@@ -59,20 +59,20 @@ async def send_welcome(message: types.Message):
 
 # Внесение группы  
 @dp.message_handler(state=Group.group_select)
-async def select_group(message: types.Message):
+async def select_group(message: types.Message,state: FSMContext):
     if pdb.check_group(message.text) == True:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
         markup.add("Да", "Нет")
         with open(config.FileLocation.cmd_group,'r', encoding='utf-8') as file:
             await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
-        await Group.sub.set()
+        await Group.next()
         pdb.add_user(message.text,message.chat.id)
     else:
         await message.reply("Что-то пошло не так, проверь, чтобы группа была формата ГИБО-05-19. Если не получается, значит база данных не доступна либо ваша группа не загружена.", parse_mode='HTML', disable_web_page_preview=True)
 
 # Настройка Уведомление за 20 минут
-dp.message_handler(state=Group.sub)
-async def select_sub(message: types.Message):
+@dp.message_handler(state=Group.sub)
+async def select_sub(message: types.Message,state: FSMContext):
     if message.text == "Да":
         pdb.setup_notify(True,message.chat.id)
     else:
@@ -83,7 +83,7 @@ async def select_sub(message: types.Message):
     # Конец регистрации
 
 # Главное меню
-dp.message_handler(commands=['menu'])
+@dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
     markup.add("Сегодня ⏲", "Завтра 📆", "Неделя 📅","Мои задачи 📋","Настройки 🛠")
