@@ -1,4 +1,5 @@
 
+from sqlalchemy.sql.expression import text
 import config
 from aiogram import types, Dispatcher
 from sqlalchemy import select
@@ -12,17 +13,14 @@ import utils.task_manager as task_manager
 
 #Переключение пользователя
 
-class Group(StatesGroup):  
+class Status(StatesGroup):  
     group_select = State()  # Статус - выбор группы
     sub = State() #Уведомление
-    complete = State()  #Проверка авторизации
-class TaskCreate(StatesGroup):  
-    name_select = State()  # Название задачи
-    lesson = State() #Уведомление
-    time = State()  #Проверка авторизации
+    complete = State()
+    task_name = State()
+    task_change = State()  #Проверка авторизации 
 
 
-@dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
     if pdb.check_user(message.chat.id) is False:
         await Group.group_select.set()
@@ -34,7 +32,6 @@ async def send_welcome(message: types.Message):
         await menu(message)
 
 # Внесение группы  
-@dp.message_handler(state=Group.group_select)
 async def select_group(message: types.Message,state: FSMContext):
     if pdb.check_group(message.text) == True:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
@@ -47,8 +44,7 @@ async def select_group(message: types.Message,state: FSMContext):
         await message.reply("Что-то пошло не так, проверь, чтобы группа была формата ГИБО-05-19. Если не получается, значит база данных не доступна либо ваша группа не загружена.", parse_mode='HTML', disable_web_page_preview=True)
 
 # Настройка Уведомление за 20 минут
-@dp.message_handler(state=Group.sub)
-async def select_sub(message: types.Message,state: FSMContext):
+async def select_notify(message: types.Message,state: FSMContext):
     if message.text == "Да":
         pdb.setup_notify(True,message.chat.id)
     else:
@@ -59,19 +55,13 @@ async def select_sub(message: types.Message,state: FSMContext):
     # Конец регистрации
 
 # Главное меню
-@dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
     markup.add("Сегодня ⏲", "Завтра 📆", "Неделя 📅","Мои задачи 📋","Настройки 🛠")
     with open(config.FileLocation.cmd_menu,'r', encoding='utf-8') as file:
-            await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
-# Для тестов           
-@dp.message_handler(commands=['test'])
-async def test(message: types.Message):
-    await notif_every_lesson()
+            await message.answer(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
 
 # Пары на сегодня
-@dp.message_handler(commands=['day','Пары на сегодня'])
 async def scheduler_today(message: types.Message):
     Lessons = f"<b> Пары на {time_lesson.TodayToEmoji(0)} | {time_lesson.NumberOfMonth()} неделя. </b> \n" 
     group = pdb.get_group(message.chat.id)
@@ -90,8 +80,7 @@ async def scheduler_today(message: types.Message):
         Lessons = "<b>Сегодня нету пар </b> ✨🎉\n Иди гуляй)"
     await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
 
-@dp.message_handler(commands=['tomorow','Пары на завтра'])
-async def scheduler_today(message: types.Message):
+async def scheduler_tomorrow(message: types.Message):
     Lessons = f"<b> Пары на {time_lesson.TodayToEmoji(0)} | {time_lesson.NumberOfMonth()} неделя. </b> \n"
     group = pdb.get_group(message.chat.id)
     check_lesson = False
@@ -110,8 +99,8 @@ async def scheduler_today(message: types.Message):
         Lessons = "<b>Завтра нету пар </b> ✨🎉\n Можешь спать и гулять))"
     await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
 
-@dp.message_handler(commands=['task'])
-async def my_task(message: types.Message):
+
+async def task(message: types.Message):
     await bot.send_message(message.chat.id, '<b> 💡 Твои задачи </b>', parse_mode='HTML')
     inline_button_complete = InlineKeyboardButton('Выполнено', callback_data='task_complete')
     inline_button_delete = InlineKeyboardButton('Удалить', callback_data='task_delete')
@@ -121,26 +110,26 @@ async def my_task(message: types.Message):
         await bot.send_message(message.chat.id,"<b>" + task["name"] + "</b>@ " + task["lesson"] + " @ до " + task["timetodo"] + "  " + task['status'] , parse_mode='HTML', reply_markup=inline_task)
     
 
-@dp.message_handler(commands=['addtask'])
-async def my_task(message: types.Message, state: FSMContext):
+
+async def addtask(message: types.Message, state: FSMContext):
     await TaskCreate.name_select.set()
     await message.reply("Окей, напиши короткое название задачи:")
     
-@dp.message_handler(state=TaskCreate.name_select)
+
 async def select_name(message: types.Message,state: FSMContext):  
     async with state.proxy() as data:
         data['name'] = message.text
     await TaskCreate.lesson.set()
     await message.reply("А по какому предмету?(Советую точно написать название предмета, иначе не будет появлятся в расписании)")
 
-@dp.message_handler(state=TaskCreate.lesson)
+
 async def select_lesson(message: types.Message,state: FSMContext):
     async with state.proxy() as data:
         data['lesson'] = message.text
     await message.reply("Лады, и до какого числа тебе нужно это сделать?(В формате число.месяц 3.02 21.05)")
     await TaskCreate.time.set()
 
-@dp.message_handler(state=TaskCreate.time)
+
 async def select_lesson(message: types.Message,state: FSMContext):
     async with state.proxy() as data:
         data['timetodo'] = message.text
@@ -150,6 +139,13 @@ async def select_lesson(message: types.Message,state: FSMContext):
     await state.finish()
 
 def register_commands(dp: Dispatcher):
-    dp.register_message_handler(cmd_start, commands="start")
-    dp.register_message_handler(cmd_play, commands="play")
-    dp.register_message_handler(cmd_top, commands="top")
+    '''dp.register_message_handler( , )'''
+    dp.register_message_handler(send_welcome, commands="start"),
+    dp.register_message_handler(select_group, state=Status.group_select),
+    dp.register_message_handler(select_notify, state=Status.sub),
+    dp.register_message_handler(menu, commands="menu"),
+    dp.register_message_handler(scheduler_today,commands=['day']),
+    dp.register_message_handler(scheduler_tomorrow,commands='tomorow'),
+    dp.register_message_handler(task,commands='task'),
+    dp.register_message_handler(addtask,commands='addtask'),
+    dp.register_message_handler(settings,commands='settings')
