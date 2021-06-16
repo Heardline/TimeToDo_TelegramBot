@@ -1,27 +1,22 @@
+import asyncio
 
-import os,sys,time,hashlib
-from aiogram.dispatcher.filters import state
-import aiohttp
 import logging
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.types import CallbackQuery
 
 from numpy import exp
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-import utils.db as pdb 
 import aioschedule
-import asyncio
-import config
-import utils.time_lessons as time_lesson
-import utils.task_manager as task_manager
-import utils.db.base as Base
+
+from config import db,Auth
+from commands import register_commands
+from callback import register_callbacks
+from utils.db.base import Base
 
 #pdb.update_data()
-API_TOKEN = config.Auth.API_TOKEN
-
+API_TOKEN = Auth.API_TOKEN
 # Команды для подсказок телеграма
 async def set_bot_commands(bot: Bot):
     commands = [
@@ -30,16 +25,14 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="week", description="Расписание на этой неделе")
     ]
     await bot.set_my_commands(commands)
-
 # Логи + SQLAlchemy + aiogram + polling
 async def main():
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
-
     engine = create_async_engine(
-        f"postgresql+asyncpg://{config.db.user}:{config.db.password}@{config.db.host}/{config.db.db_name}",
+        f"postgresql+asyncpg://postgres:k686999@127.0.0.1/Schedul",
         future=True
     )
     async with engine.begin() as conn:
@@ -50,12 +43,12 @@ async def main():
     async_session = sessionmaker(
         engine, expire_on_commit=False, class_=AsyncSession
     )
-    bot = Bot(config.bot.token, parse_mode="HTML")
+    bot = Bot(API_TOKEN, parse_mode="HTML")
     bot["db"] = async_session
-    dp = Dispatcher(bot)
+    dp = Dispatcher(bot,storage=MemoryStorage())
 
-    #register_commands(dp)
-    #register_callbacks(dp)
+    register_commands(dp)
+    register_callbacks(dp)
 
     await set_bot_commands(bot)
 
@@ -67,7 +60,7 @@ async def main():
         await bot.session.close()
 
 # Уведомлялки утром
-async def notif_morning():
+'''async def notif_morning():
     for user in UsersDB.find({"sub":"True"}):
         #try:
         group = UsersDB.find_one({"chat_id":user["chat_id"]})["group"]
@@ -131,7 +124,7 @@ async def scheduler():
 
 async def on_startup(x):
     asyncio.create_task(scheduler())
-
+'''
 if __name__ == '__main__':
     try:
         asyncio.run(main())
