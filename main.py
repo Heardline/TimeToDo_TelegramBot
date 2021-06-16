@@ -13,28 +13,22 @@ from aiogram.types import ReplyKeyboardRemove, \
     ReplyKeyboardMarkup, KeyboardButton, \
     InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import CallbackQuery
+
 from numpy import exp
-from pymongo import MongoClient
-import utils.scrap_schedul as schedul_update
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 import utils.db as pdb 
 import aioschedule
 import asyncio
 import config
 import utils.time_lessons as time_lesson
 import utils.task_manager as task_manager
+from sqlalchemy.orm import declarative_base
 
+Base = declarative_base()
 
 #pdb.update_data()
 API_TOKEN = config.Auth.API_TOKEN
-
-# Логи
-logging.basicConfig(level=logging.INFO)
-
-# Инициализируем бота
-bot = Bot(token=API_TOKEN)
-#storage = MongoStorage(host=config.MongoAuth.host, port=27017, db_name='users', username="admin", password=config.MongoAuth.password) #Не работает с библиотекой
-storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
 
 async def set_bot_commands(bot: Bot):
     commands = [
@@ -43,6 +37,40 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="week", description="Расписание на этой неделе")
     ]
     await bot.set_my_commands(commands)
+
+async def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    )
+
+    engine = create_async_engine(
+        f"postgresql+asyncpg://{config.db.user}:{config.db.password}@{config.db.host}/{config.db.db_name}",
+        future=True
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # expire_on_commit=False will prevent attributes from being expired
+    # after commit.
+    async_session = sessionmaker(
+        engine, expire_on_commit=False, class_=AsyncSession
+    )
+    bot = Bot(config.bot.token, parse_mode="HTML")
+    bot["db"] = async_session
+    dp = Dispatcher(bot)
+
+    #register_commands(dp)
+    #register_callbacks(dp)
+
+    await set_bot_commands(bot)
+
+    try:
+        await dp.start_polling()
+    finally:
+        await dp.storage.close()
+        await dp.storage.wait_closed()
+        await bot.session.close()
 
 
 #Переключение пользователя
@@ -259,5 +287,8 @@ async def on_startup(x):
     asyncio.create_task(scheduler())
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=False, on_startup=on_startup)    
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.error("Bot stopped!")   
 
