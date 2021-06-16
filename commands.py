@@ -1,16 +1,17 @@
-
+import os
 from sqlalchemy.sql.expression import text
 import config
 from aiogram import types, Dispatcher
-from sqlalchemy import select
+from sqlalchemy import select,insert
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters import Text
 from aiogram.types import ReplyKeyboardRemove, \
     ReplyKeyboardMarkup, KeyboardButton, \
     InlineKeyboardMarkup, InlineKeyboardButton
 import utils.task_manager as task_manager
-from utils.db.db import Student,Lesson
+from utils.db.db import Student, Group, import_from_xlsx
 #Переключение пользователя
 
 class Status(StatesGroup):  
@@ -24,12 +25,14 @@ class Status(StatesGroup):
 async def send_welcome(message: types.Message):
     db_session = message.bot.get('db')
     sql = select(Student).where(Student.telegram_id == message.from_user.id)
+    # Проверяем есть ли в базе студент
     async with db_session() as session:
         request = await session.execute(sql)
         student = request.scalar()
         if not student:
-            student = Student(user_id=message.from_user.id)
+            student = Student(telegram_id=message.from_user.id)
             session.add(student)
+            await session.commit()
             await Status.group_select.set()
             with open(config.FileLocation.cmd_welcome, 'r', encoding='utf-8') as file:
                 await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True)
@@ -40,22 +43,41 @@ async def send_welcome(message: types.Message):
 
 # Внесение группы  
 async def select_group(message: types.Message,state: FSMContext):
-    if pdb.check_group(message.text) == True:
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
-        markup.add("Да", "Нет")
-        with open(config.FileLocation.cmd_group,'r', encoding='utf-8') as file:
-            await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
-        await Group.next()
-        pdb.add_user(message.text,message.chat.id)
-    else:
-        await message.reply("Что-то пошло не так, проверь, чтобы группа была формата ГИБО-05-19. Если не получается, значит база данных не доступна либо ваша группа не загружена.", parse_mode='HTML', disable_web_page_preview=True)
+    db_session = message.bot.get('db')
+    sql = select(Group).where(Group.name == message.text)
+    async with db_session() as session:
+        request = await session.execute(sql)
+        group = request.scalar()
+        if group:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
+            markup.add("Да", "Нет")
+            # Заносим группу студенту
+            sql = select(Student).where(Student.telegram_id == message.from_user.id)
+            request = await session.execute(sql)
+            student = request.scalar()
+            student.group = message.text
+            await session.commit()
+            with open(config.FileLocation.cmd_group,'r', encoding='utf-8') as file:
+                await message.answer(file.read(), parse_mode='HTML', disable_web_page_preview=True, reply_markup=markup)
+            await Group.next()
+        else:
+            await message.reply("Что-то пошло не так, проверь, чтобы группа была формата ГИБО-05-19. Если не получается, значит база данных не доступна либо ваша группа не загружена.", parse_mode='HTML', disable_web_page_preview=True)
 
 # Настройка Уведомление за 20 минут
 async def select_notify(message: types.Message,state: FSMContext):
-    if message.text == "Да":
-        pdb.setup_notify(True,message.chat.id)
-    else:
-        pdb.setup_notify(False,message.chat.id)
+    db_session = message.bot.get('db')
+    async with db_session() as session:
+        if message.text == "Да":
+            sql = select(Student).where(Student.telegram_id == message.from_user.id)
+            request = await session.execute(sql)
+            student = request.scalar()
+            student.notify = True
+            await session.commit()
+        else:
+            sql = select(Student).where(Student.telegram_id == message.from_user.id)
+            student = await session.execute(sql).scalar()
+            student.notify = False
+            await session.commit()
     markup = types.ReplyKeyboardRemove()
     await Group.complete.set()
     await menu(message)
@@ -145,6 +167,9 @@ async def select_lesson(message: types.Message,state: FSMContext):
         task.addtodb(db["task"])
     await state.finish()
 
+async def update_data(message: types.Message):
+    await import_from_xlsx(message)
+
 def register_commands(dp: Dispatcher):
     '''dp.register_message_handler( , )'''
     dp.register_message_handler(send_welcome, commands="start"),
@@ -155,4 +180,4 @@ def register_commands(dp: Dispatcher):
     dp.register_message_handler(scheduler_tomorrow,commands='tomorow'),
     dp.register_message_handler(task,commands='task'),
     dp.register_message_handler(addtask,commands='addtask'),
-    dp.register_message_handler(settings,commands='settings')
+    dp.register_message_handler(update_data,commands='update')
