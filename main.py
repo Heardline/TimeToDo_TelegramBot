@@ -4,6 +4,7 @@ from aiogram.dispatcher.filters import state
 import aiohttp
 import logging
 from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import BotCommand
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
@@ -34,6 +35,15 @@ bot = Bot(token=API_TOKEN)
 #storage = MongoStorage(host=config.MongoAuth.host, port=27017, db_name='users', username="admin", password=config.MongoAuth.password) #Не работает с библиотекой
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
+
+async def set_bot_commands(bot: Bot):
+    commands = [
+        BotCommand(command="today", description="Расписание на сегодня"),
+        BotCommand(command="tommorow", description="Расписаниие на завтра"),
+        BotCommand(command="week", description="Расписание на этой неделе")
+    ]
+    await bot.set_my_commands(commands)
+
 
 #Переключение пользователя
 class Group(StatesGroup):  
@@ -97,39 +107,39 @@ async def test(message: types.Message):
 # Пары на сегодня
 @dp.message_handler(commands=['day','Пары на сегодня'])
 async def scheduler_today(message: types.Message):
-    Lessons = "<b> Пары на " + str(time_lesson.TodayToEmoji(0)) + " | "+ str(time_lesson.NumberOfMonth()) + " неделя. </b> \n" 
-    group = UsersDB.find_one({"chat_id":message.chat.id})["group"]
-    check_lesson = False # Проверяет, есть ли вообще пары на сегодня
+    Lessons = f"<b> Пары на {time_lesson.TodayToEmoji(0)} | {time_lesson.NumberOfMonth()} неделя. </b> \n" 
+    group = pdb.get_group(message.chat.id)
+    check_lesson = False
     for i in range(1,7):
         if time_lesson.NumberOfMonth() % 2 == 0: # Четная/ не четная неделя
             a = i*2
         else:
             a = (i*2)-1
-        if pdb.get_lesson(time_lesson.todayIs()+a,group) == "nan":
+        if pdb.get_lesson(time_lesson.todayIs()+a,group):
             pass
         else: 
             check_lesson = True
-            Lessons = pdb.ready_lesson(Lessons,group, a,i)  
-    #if check_lesson is False:
-        #Lessons = "<b>Сегодня нету пар </b> ✨🎉\n Иди гуляй)"
+            Lessons = pdb.ready_lesson(Lessons,group, a,i)
+    if check_lesson is False:
+        Lessons = "<b>Сегодня нету пар </b> ✨🎉\n Иди гуляй)"
     await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)
 
 @dp.message_handler(commands=['tomorow','Пары на завтра'])
 async def scheduler_today(message: types.Message):
-    Lessons = "<b> Пары на " + str(time_lesson.TodayToEmoji(1)) + str(time_lesson.NumberOfMonth()) + " неделя. </b> \n" 
-    group = UsersDB.find_one({"chat_id":message.chat.id})["group"]
-    check_lesson = False # Проверяет, есть ли вообще пары на сегодня
+    Lessons = f"<b> Пары на {time_lesson.TodayToEmoji(0)} | {time_lesson.NumberOfMonth()} неделя. </b> \n"
+    group = pdb.get_group(message.chat.id)
+    check_lesson = False
     for i in range(1,7):
         if time_lesson.NumberOfMonth() % 2 == 0: 
             a = i*2 + 12
         else:
             a = (i*2)-1 + 12
-        if pdb.get_lesson(time_lesson.todayIs()+a,group) == "nan":
+        if pdb.get_lesson(time_lesson.todayIs()+a,group):
             pass
         else: 
             check_lesson = True
-            # Четная/ не четная неделя
-            Lessons = pdb.ready_lesson(Lessons,group, a,i)
+            Lesson_obj = pdb.get_lesson(time_lesson.todayIs()+a,group)
+            Lessons.join(f"{time_lesson.NumberToEmoji(i)} ")
     if check_lesson is False:
         Lessons = "<b>Завтра нету пар </b> ✨🎉\n Можешь спать и гулять))"
     await message.reply(Lessons, parse_mode='HTML', disable_web_page_preview=True)

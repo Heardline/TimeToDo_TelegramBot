@@ -34,7 +34,7 @@ def check_group(group):
         
 
 def check_user(telegram_id):
-    cursor.execute("SELECT grp FROM students WHERE telegram_id = '" + str(telegram_id) + "';")
+    cursor.execute(f"SELECT grp FROM students WHERE telegram_id = '{telegram_id}';")
     if cursor.fetchone():
         print(cursor.fetchone())
         return True
@@ -71,13 +71,9 @@ def add_user(group,telegram_id):
 
 def get_group(telegram_id):
     try:
-        cursor = connection.cursor()
-        cursor.execute(f"SELECT grp FROM groups WHERE telegram_id = {telegram_id};")
-        id_group = cursor.fetchone()
-        execute_com = '''SELECT name FROM groups WHERE id = %s;'''
-        cursor.execute(execute_com,id_group)
+        execute_com = f"SELECT grp FROM students WHERE telegram_id = '{telegram_id}';"
+        cursor.execute(execute_com)
         connection.commit()
-        print(f"Пользователь {telegram_id} успешно создан в PostgreSQL")
         return cursor.fetchone()
 
     except (Exception, Error) as error:
@@ -134,10 +130,10 @@ def import_from_xlsx():
 
 
 #Получение данных из dataframe. time_row - код времени(в зависимости от четной и не четной недели)
-def get_lesson(time_row,group,type):
+def get_lesson(time_row,group):
     try:
         cursor = connection.cursor()
-        execute_com = f"SELECT {type} FROM lessons WHERE group = {group} and tstart = {time_row%12} and day = {time_row//12};"
+        execute_com = f"SELECT * FROM lessons WHERE grp = {group} and tstart = {time_row%12} and day = {time_row//12};"
         cursor.execute(execute_com)
         #print(name,teacher,room,type,time%12," ", time//12, " ",odd)
         return cursor.fetchone()
