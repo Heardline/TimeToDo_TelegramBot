@@ -1,22 +1,8 @@
 import pandas as pd,os
 import utils.time_lessons as time_lesson
-import psycopg2
+
 import utils.scrap_schedul as updater
-from psycopg2 import Error
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-try:
-        # Подключение к существующей базе данных
-        connection = psycopg2.connect(user="postgres",
-                                    # пароль, который указали при установке PostgreSQL
-                                    password="k686999",
-                                    host="127.0.0.1",
-                                    port="5432",
-                                    database="Schedul")
-        connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        # Курсор для выполнения операций с базой данных
-        cursor = connection.cursor()
-except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL", error)
+
 
 def setup_notify(boolen,telegram_id):
     try:

@@ -17,9 +17,7 @@ import asyncio
 import config
 import utils.time_lessons as time_lesson
 import utils.task_manager as task_manager
-from sqlalchemy.orm import declarative_base
-
-Base = declarative_base()
+import utils.db.base as Base
 
 #pdb.update_data()
 API_TOKEN = config.Auth.API_TOKEN
