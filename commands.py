@@ -10,7 +10,7 @@ from aiogram.types import ReplyKeyboardRemove, \
     ReplyKeyboardMarkup, KeyboardButton, \
     InlineKeyboardMarkup, InlineKeyboardButton
 import utils.task_manager as task_manager
-
+from utils.db.db import Student,Lesson
 #Переключение пользователя
 
 class Status(StatesGroup):  
@@ -22,14 +22,21 @@ class Status(StatesGroup):
 
 
 async def send_welcome(message: types.Message):
-    if pdb.check_user(message.chat.id) is False:
-        await Group.group_select.set()
-        with open(config.FileLocation.cmd_welcome, 'r', encoding='utf-8') as file:
-            await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True)
-    else:
-        await message.answer(message.chat.id, "<b> Привет, рад тебя видеть снова </b>", parse_mode='HTML', disable_web_page_preview=True)
-        await Group.complete.set()
-        await menu(message)
+    db_session = message.bot.get('db')
+    sql = select(Student).where(Student.telegram_id == message.from_user.id)
+    async with db_session() as session:
+        request = await session.execute(sql)
+        student = request.scalar()
+        if not student:
+            student = Student(user_id=message.from_user.id)
+            session.add(student)
+            await Status.group_select.set()
+            with open(config.FileLocation.cmd_welcome, 'r', encoding='utf-8') as file:
+                await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True)
+        else:
+            await message.answer(message.chat.id, "<b> Привет, рад тебя видеть снова </b>", parse_mode='HTML', disable_web_page_preview=True)
+            await Status.complete.set()
+            await menu(message)
 
 # Внесение группы  
 async def select_group(message: types.Message,state: FSMContext):
