@@ -28,7 +28,7 @@ async def set_bot_commands(bot: Bot):
 # Логи + SQLAlchemy + aiogram + polling
 async def main():
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.INFO  ,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
     engine = create_async_engine(
