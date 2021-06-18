@@ -10,10 +10,10 @@ emojiNumber = {
 emojiToday = {
     1:"‍🙄Понедельник",
     2:"🐼Вторник",
-    3:"🐱‍👤Среда",
+    3:"🐱‍👤Среду",
     4:"🐺Четверг",
-    5:"🤗Пятница",
-    6:"Суббота🍻",
+    5:"🤗Пятницу",
+    6:"Субботу🍻",
     7:"✨Воскресенье",
 }
 scheduler_dict = {
@@ -32,7 +32,7 @@ def NumberOfMonth():
     return datetime.datetime.today().isocalendar()[1] - datetime.datetime.today().replace(day=1).isocalendar()[1] + 1 
 def todayIs():
     today = datetime.datetime.today().weekday()
-    return today*12
+    return today
 def NumberToEmoji(number):
     return emojiNumber[int(number)]
 def TodayToEmoji(add):
