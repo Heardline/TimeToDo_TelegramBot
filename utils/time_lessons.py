@@ -36,4 +36,4 @@ def todayIs():
 def NumberToEmoji(number):
     return emojiNumber[int(number)]
 def TodayToEmoji(add):
-    return emojiToday[datetime.datetime.today().weekday()+1+add]
+    return emojiToday[(datetime.datetime.today().weekday()+1+add)%7]
