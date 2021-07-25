@@ -1,3 +1,4 @@
+from datetime import datetime
 from logging import ERROR
 import logging
 from sys import intern
@@ -11,6 +12,7 @@ import utils.time_lessons as time_lesson
 from sqlalchemy import Column, Integer, BigInteger,String,Boolean, DateTime
 import utils.scrap_schedul as updater
 from utils.db.base import Base
+
 class Student(Base):
     __tablename__ = "student"
     __table_args__ = {'extend_existing': True}
@@ -36,7 +38,7 @@ class Task(Base):
     name = Column('name',String)
     desc = Column('desc',String)
     student = Column('student', ForeignKey('student.telegram_id'))
-    lesson = Column('lesson',ForeignKey('lesson.id'))
+    lesson = Column('lesson',String)
     time = Column('day',DateTime)
 class Group(Base):
     __tablename__ = "group"
@@ -45,29 +47,7 @@ class Group(Base):
     name = Column('name',String)
     univer = Column('univer',String)
 
-def setup_notify(boolen,telegram_id):
-    try:
-        cursor.execute(f"Update students set notify = {boolen} WHERE telegram_id = '{telegram_id}';")
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL setup_notify", error)
-
-def check_group(group):
-    cursor.execute("SELECT id FROM groups WHERE name = '" + group + "';")
-    if cursor.fetchone():
-        print(cursor.fetchone())
-        return True
-    else:
-        return False
-        
-
-def check_user(telegram_id):
-    cursor.execute(f"SELECT grp FROM students WHERE telegram_id = '{telegram_id}';")
-    if cursor.fetchone():
-        print(cursor.fetchone())
-        return True
-    else:
-        return False
-    
+ 
 def update_data():
     updater.download_xlsx()
     remove_data()
@@ -81,42 +61,6 @@ async def import_group(message,group,univercity):
         session.add(group)
         await session.commit()
         print(group)
-
-
-
-
-def add_user(group,telegram_id):
-    try:
-        execute_com = f"INSERT INTO students (grp,telegram_id, notify) VALUES ('{group}','{telegram_id}', True);"
-        cursor.execute(execute_com)
-        connection.commit()
-        print(f"Пользователь {telegram_id} успешно зарегестирован в PostgreSQL")
-        return True
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL add_user", error)
-        return False
-
-def get_group(telegram_id):
-    try:
-        execute_com = f"SELECT grp FROM students WHERE telegram_id = '{telegram_id}';"
-        cursor.execute(execute_com)
-        connection.commit()
-        return cursor.fetchone()
-
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL get_group", error)
-        return False
-
-def init_db():
-    try:
-        cursor = connection.cursor()
-        execute_com = ''''''
-        cursor.execute(execute_com)
-        connection.commit()
-        print("Таблица успешно создана в PostgreSQL")
-
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL", error)
 
 async def import_lesson(message,name,teacher,room,type,time, group):
     if room != room:
@@ -135,15 +79,6 @@ async def import_lesson(message,name,teacher,room,type,time, group):
         session.add(lesson)
         await session.commit()
 
-def remove_data():
-    try:
-        cursor = connection.cursor()
-        execute_com = '''DELETE from lessons;'''
-        cursor.execute(execute_com)
-        #print(name,teacher,room,type,time%12," ", time//12, " ",odd)
-        connection.commit()
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL remove_data ", error)
 
 async def import_from_xlsx(message):
     excel_names = os.listdir("data/xlsx/")
@@ -160,16 +95,3 @@ async def import_from_xlsx(message):
                         await import_lesson(message,data_df.iloc[time,data_df.columns.get_loc(index)],data_df.iloc[time,data_df.columns.get_loc(index)+2],data_df.iloc[time,data_df.columns.get_loc(index)+3],data_df.iloc[time,data_df.columns.get_loc(index)+1],time,index) 
     await message.answer("Обновление данных завершено.")
         #print(data_df.iloc[2,data_df.columns.get_loc("ГДБО-01-20")])
-
-
-#Получение данных из dataframe. time_row - код времени(в зависимости от четной и не четной недели)
-def get_lesson(time_row,group):
-    try:
-        cursor = connection.cursor()
-        execute_com = f"SELECT * FROM lessons WHERE grp = {group} and tstart = {time_row%12} and day = {time_row//12};"
-        cursor.execute(execute_com)
-        #print(name,teacher,room,type,time%12," ", time//12, " ",odd)
-        return cursor.fetchone()
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL get_lesson", error)
-
