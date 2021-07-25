@@ -33,6 +33,8 @@ async def get_student(db_session, user_id: int) -> Student:
     player: Student = request.scalar()
     return player
 
+task_callback = CallbackData('task_act','id','act')
+
 async def send_welcome(message: types.Message,state: FSMContext):
     db_session = message.bot.get('db')
     # Проверяем есть ли в базе студент
@@ -132,13 +134,32 @@ async def scheduler_tomorrow(message: types.Message):
             Lesson_text = "<b>Завтра нету пар </b> ✨🎉\n)"
     await message.answer(Lesson_text, parse_mode='HTML', disable_web_page_preview=True)
 
+## Пары на эту неделю
+async def scheduler_week(message: types.Message):
+    Lesson_text = f" <b>Расписание на {time_lesson.NumberOfMonth()} неделю. </b> \n \n" 
+    db_session = message.bot.get('db')
+    async with db_session() as session:
+        # Четная/ не четная неделя
+        if time_lesson.NumberOfMonth() % 2 == 0: week=0 
+        else: week=1 
+        student = await get_student(session,message.from_user.id)
+        group = student.grp
+        for day in range(1,7):
+            Lesson_text += f"<b> {time_lesson.TodayToEmoji(day)} \n </b> "
+            sql = select(Lesson).where(and_(Lesson.grp == group, Lesson.day == (time_lesson.todayIs()+day)%7, Lesson.week == week))
+            request = await session.execute(sql)
+            lessons = request.scalars()  
+            k = 0
+            for lesson in lessons:
+                Lesson_text+=(f"{time_lesson.NumberToEmoji((lesson.time+1) // 2)}\n {lesson.name} |  {lesson.type} | {lesson.room} {lesson.teacher} \n")
+                k+=1
+            if k==0:
+                Lesson_text += f"<b>Нету пар </b> ✨\n"
+            Lesson_text += '\n'
+    await message.answer(Lesson_text, parse_mode='HTML', disable_web_page_preview=True)
 
 async def task(message: types.Message):
     await message.answer('<b> 💡 Твои задачи </b>', parse_mode='HTML')
-    inline_button_complete = InlineKeyboardButton('Выполнено', callback_data='task_complete')
-    inline_button_delete = InlineKeyboardButton('Удалить', callback_data='task_delete')
-    inline_button_change = InlineKeyboardButton('Изменить', callback_data='task_change')
-    inline_task = InlineKeyboardMarkup().row(inline_button_complete,inline_button_change,inline_button_delete)
     db_session = message.bot.get('db')
     async with db_session() as session:
         sql = select(Task).where(Task.student == message.from_user.id)
@@ -147,21 +168,33 @@ async def task(message: types.Message):
         k = 0
         for task in tasks:
             k+=1
-            await message.answer(f"<b> {task.name} | {task.lesson} | Срок:{task.time} </b>\n {task.desc} " , parse_mode='HTML', reply_markup=inline_task)
+            inline_button_complete = InlineKeyboardButton('Выполнено', callback_data=task_callback.new(task.id,'done'))
+            inline_button_delete = InlineKeyboardButton('Удалить', callback_data=task_callback.new(task.id,'delete'))
+            inline_button_change = InlineKeyboardButton('Изменить', callback_data=task_callback.new(task.id,'change'))
+            inline_task = InlineKeyboardMarkup().row(inline_button_complete,inline_button_change,inline_button_delete)
+            await message.answer(f"<b> {time_lesson.emojiStatus[task.status]} {task.lesson} | {task.name} | Срок до {time_lesson.emojiToday[task.time.weekday()]} - {task.time.strftime('%d.%m.%y')} \n {task.desc} </b> " , parse_mode='HTML', reply_markup=inline_task)
         if k==0:
             await message.answer("Пока что у тебя нету задач" , parse_mode='HTML')
     
-
-
 async def task_add(message: types.Message, state: FSMContext):
     await message.reply("До какого тебе нужно это сделать?",reply_markup= await SimpleCalendar().start_calendar())
 
+async def task_name(message: types.Message,state: FSMContext):
+    if message.text != 'Отмена':
+        async with state.proxy() as data:
+            data['lesson'] = message.text
+            keyboard = ReplyKeyboardMarkup()
+            await Status.task_select.set()
+            await message.answer("Лады, теперь напиши название задачи и через @ краткое описание (Сдать дз @ Надо сделать матан ст.25 №2,3,4)",reply_markup=keyboard)
+    else:
+        await state.finish()
+        await message.answer("Отменено")
 
 async def task_select(message: types.Message,state: FSMContext):
     async with state.proxy() as data:
         db_session = message.bot.get('db')
         async with db_session() as session:
-            task = Task(name=message.text.split("@")[0],desc=message.text.split("@")[1],student=message.from_user.id,lesson=data['lesson'],time=data['time'])
+            task = Task(name=message.text.split("@")[0],desc=message.text.split("@")[1],student=message.from_user.id,lesson=data['lesson'],time=data['time'],status='Не готово')
             session.add(task)
             await session.commit()
         await message.answer(task.name)
@@ -178,10 +211,13 @@ def register_commands(dp: Dispatcher):
     dp.register_message_handler(menu, commands="menu"),
     dp.register_message_handler(scheduler_today,commands='day'),
     dp.register_message_handler(scheduler_tomorrow,commands='tomorow'),
+    dp.register_message_handler(scheduler_week,commands='week'),
     dp.register_message_handler(task_add,commands='addtask'),
     dp.register_message_handler(task,commands='task'),
+    dp.register_message_handler(task_name,state=Status.task_name),
     dp.register_message_handler(task_select,state=Status.task_select),
-    dp.register_message_handler(update_data,commands='update')
+    dp.register_message_handler(update_data,commands='update'),
+
 
 ''' CALLBACK BLOCK '''
 async def process_simple_calendar(callback_query: CallbackQuery, callback_data: dict, state: FSMContext):
@@ -197,19 +233,21 @@ async def process_simple_calendar(callback_query: CallbackQuery, callback_data: 
                 request = await session.execute(sql)
                 lessons = request.scalars()
                 keyboard = ReplyKeyboardMarkup()
-                keyboard.add(InlineKeyboardButton('Другое',callback_data='Другое'))
+                keyboard.insert(InlineKeyboardButton('Другое'))
                 for lesson in lessons:
-                    keyboard.add(InlineKeyboardButton(str(lesson.name),callback_data='lesson'))
-                keyboard.add(InlineKeyboardButton('Отмена',callback_data='cancel'))
+                    keyboard.insert(InlineKeyboardButton(str(lesson.name)))
+                keyboard.insert(InlineKeyboardButton('Отмена'))
                 await callback_query.message.answer("Ок. А какая пара?", reply_markup=keyboard)
+                await Status.task_name.set()
 
-async def task_lesson(callback_query: CallbackQuery, callback_data: dict, state: FSMContext):
-    async with state.proxy() as data:
-        data['lesson'] = callback_query.message.text
-        keyboard = ReplyKeyboardMarkup()
-        await Status.task_select.set()
-        await callback_query.message.answer("Лады, теперь напиши название задачи и через @ краткое описание (Сдать дз @ Надо сделать матан ст.25 №2,3,4)",reply_markup=keyboard)
+async def task_done(callback_query: CallbackQuery, callback_data: dict):
+    db_session = callback_query.message.bot.get('db')
+    async with db_session() as session:
+        sql = update(Task).where(Task.id == int(callback_data['id'])).values(status='Готово')
+        await session.execute(sql)
+        await session.commit()
+    await callback_query.message.edit_text('✅ ' + str(callback_query.message.text)[1:])
 
 def register_callbacks(dp: Dispatcher):
     dp.register_callback_query_handler(process_simple_calendar, calendar_callback.filter()),
-    dp.register_callback_query_handler(task_lesson,text='lesson')
+    dp.register_callback_query_handler(task_done, task_callback.filter(act='done'))
