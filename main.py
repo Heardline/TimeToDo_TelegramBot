@@ -11,8 +11,7 @@ from sqlalchemy.orm import sessionmaker
 import aioschedule
 
 from config import db,Auth
-from commands import register_commands
-from callback import register_callbacks
+from commands import register_commands,register_callbacks
 from utils.db.base import Base
 
 #pdb.update_data()
@@ -21,7 +20,7 @@ API_TOKEN = Auth.API_TOKEN
 async def set_bot_commands(bot: Bot):
     commands = [
         BotCommand(command="today", description="Расписание на сегодня"),
-        BotCommand(command="tommorow", description="Расписаниие на завтра"),
+        BotCommand(command="tomorow", description="Расписаниие на завтра"),
         BotCommand(command="week", description="Расписание на этой неделе")
     ]
     await bot.set_my_commands(commands)
@@ -51,7 +50,7 @@ async def main():
     register_callbacks(dp)
 
     await set_bot_commands(bot)
-
+    
     try:
         await dp.start_polling()
     finally:
