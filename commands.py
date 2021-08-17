@@ -19,7 +19,7 @@ from utils.simple_calendar import calendar_callback, SimpleCalendar
 from utils.db.db import Student, Group, Lesson, Task, import_from_xlsx
 import utils.time_lessons as time_lesson
 
-#Переключение пользователя
+# Переключение пользователя
 class Status(StatesGroup):  
     group_select = State()  # Статус - выбор группы
     sub = State() #Уведомление
@@ -32,7 +32,16 @@ async def get_student(db_session, user_id: int) -> Student:
     request = await db_session.execute(sql)
     player: Student = request.scalar()
     return player
-
+''' Код по совету проверки коммитов в базу данных. На будущие
+try:
+        db.session.commit()
+        return await msg.reply(context.user_registered, reply_markup=ReplyKeyboardRemove())
+    except Exception as err:
+        print(f"Database commit error: {err}")
+        db.session.rollback()
+        db.session.remove()
+        return await msg.reply(context.error_occurred, reply_markup=ReplyKeyboardRemove())
+'''
 task_callback = CallbackData('task_act','id','act')
 
 async def send_welcome(message: types.Message,state: FSMContext):
