@@ -1,5 +1,5 @@
 import asyncio
-
+import click
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
@@ -14,6 +14,22 @@ import aioschedule
 from config import db,Auth
 from commands import register_commands,register_callbacks,get_users,get_next_lesson
 from utils.db.base import Base
+
+# Проверка загрузки конфига
+try:
+    from config import db,Auth
+except ModuleNotFoundError:
+    click.echo(click.style(
+        "Config file not found!\n"
+        "Please create config.py file according to config.py.example",
+        fg='bright_red'))
+    exit()
+except ImportError as err:
+    var = re.match(r"cannot import name '(\w+)' from", err.msg).groups()[0]
+    click.echo(click.style(
+        f"{var} is not defined in the config file",
+        fg='bright_red'))
+    exit()
 
 #pdb.update_data()
 API_TOKEN = Auth.API_TOKEN
@@ -83,27 +99,6 @@ async def alert_lesson():
         lesson = await get_next_lesson(bot,student.telegram_id)
         if lesson:
             await bot.send_message(student.telegram_id,f'💬 Через 10 минут начнется {lesson.name} {lesson.room} {lesson.type}',disable_notification=False)
-
-# Уведомлять после каждой пары
-async def notif_every_lesson():
-    for user in UsersDB.find({"sub":"True"}):
-        #try:
-        group = UsersDB.find_one({"chat_id":user["chat_id"]})["group"]
-        Lesson = "<b> У тебя по расписанию дальше: </b> \n "
-        a = 0 #Локальная переменная - формирует адрес исходя из четной/нечетной неделе и когда.
-        now = time_lesson.convertHourtoLesson()
-        if pdb.get_lesson(time_lesson.todayIs()+1+now,group) == "nan":
-            break
-        if time_lesson.NumberOfMonth() % 2 == 0: 
-            a = now*2
-        else:
-            a = (now*2)-1
-             # Четная/ не четная неделя
-        if pdb.get_lesson(time_lesson.todayIs()+a,group) == "nan":
-            pass
-        else: 
-            Lesson = pdb.ready_lesson(Lesson,group,a,now)     
-        await bot.send_message(user["chat_id"], Lesson, parse_mode='HTML', disable_web_page_preview=True)
     
 if __name__ == '__main__':
     try:
