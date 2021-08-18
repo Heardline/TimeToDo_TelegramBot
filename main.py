@@ -1,17 +1,15 @@
 import asyncio
 import click
+import re
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.utils import executor
 
-from numpy import exp
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-import aioschedule
 
-from config import db,Auth
+import aioschedule
 from commands import register_commands,register_callbacks,get_users,get_next_lesson
 from utils.db.base import Base
 
@@ -48,11 +46,11 @@ async def set_bot_commands(bot: Bot):
 
 async def scheduler():
     aioschedule.every().day.at("8:20").do(alert_lesson)
-    aioschedule.every().day.at("10:30").do(notif_every_lesson)
-    aioschedule.every().day.at("12:30").do(notif_every_lesson)
-    aioschedule.every().day.at("14:10").do(notif_every_lesson)
-    aioschedule.every().day.at("16:10").do(notif_every_lesson)
-    aioschedule.every().day.at("17:50").do(notif_every_lesson)
+    aioschedule.every().day.at("10:30").do(alert_lesson)
+    aioschedule.every().day.at("12:30").do(alert_lesson)
+    aioschedule.every().day.at("14:10").do(alert_lesson)
+    aioschedule.every().day.at("16:10").do(alert_lesson)
+    aioschedule.every().day.at("17:50").do(alert_lesson)
     while True:
         await aioschedule.run_pending()
         await asyncio.sleep(5)

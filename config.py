@@ -1,10 +1,18 @@
 
 
+class Settings():
+    def __init__(self) -> None:
+        self.cmd_welcome = ''
+        self.cmd_menu = ''
+        self.admins = ()
+
 class Auth():
-    self.API_TOKEN = ''
+    def __init__(self) -> None:    
+        self.API_TOKEN = ''
 class db():
-    self.type_db = ''
-    self.login = ''
-    self.password = ''
-    self.ip = ''
-    self.table = ''
+    def __init__(self) -> None:  
+        self.type_db = ''
+        self.login = ''
+        self.password = ''
+        self.ip = ''
+        self.table = ''
