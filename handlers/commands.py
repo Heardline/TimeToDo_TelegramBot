@@ -1,4 +1,5 @@
 
+from admin import update_data
 import utils.time_lessons as time_lesson
 from aiogram import Dispatcher, types
 from sqlalchemy import and_, select
