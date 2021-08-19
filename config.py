@@ -9,6 +9,7 @@ class Settings():
 class Auth():
     def __init__(self) -> None:    
         self.API_TOKEN = ''
+        
 class db():
     def __init__(self) -> None:  
         self.type_db = ''
@@ -16,3 +17,13 @@ class db():
         self.password = ''
         self.ip = ''
         self.table = ''
+class vk():
+    def __init__(self) -> None:
+        self.isuse = True
+        self.VK_TOKEN = ''
+        self.skipads = True
+        self.skipPostsWithCopyright = False
+        self.reqFilter = ''
+        self.reqVer = ''
+        self.vkDomain = ''
+        self.update = ''
