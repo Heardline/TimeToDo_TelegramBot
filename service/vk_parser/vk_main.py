@@ -100,8 +100,8 @@ class VkFetch:
                 fetch_result.append(item)
 
         return fetch_result
-
-async def get_last_posts(message):
+# Оснотва парсинга группы вк
+async def get_last_posts(message,public,count_posts):
     Session = VkFetch(vk.VK_TOKEN)
     posts = await Session.fetch_public_wall('https://vk.com/sumirea',5)
     for post in posts:
