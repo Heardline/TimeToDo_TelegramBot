@@ -1,16 +1,9 @@
-from datetime import datetime
-from logging import ERROR
-import logging
-from sys import intern
-import pandas as pd,os
-import enum
-from sqlalchemy.sql.expression import column
-from sqlalchemy import select,insert,delete
+
+from sqlalchemy import delete
 from sqlalchemy.sql.schema import ForeignKey
 from sqlalchemy.sql.traversals import CACHE_IN_PLACE
-import utils.time_lessons as time_lesson
 from sqlalchemy import Column, Integer, BigInteger,String,Boolean, DateTime
-import utils.scrap_schedul as updater
+import service.schedul.scrap_schedul as updater
 from utils.db.base import Base
 
 class Student(Base):
