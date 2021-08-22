@@ -1,10 +1,9 @@
 import re
 from typing import Dict, List, Union, Optional
 from contextlib import asynccontextmanager
-
+import logging
 import tenacity
 from aiovk import API, TokenSession
-from loguru import logger
 from config import vk
 class VkFetch:
     def __init__(self, token: str):
@@ -16,11 +15,12 @@ class VkFetch:
         try:
             yield API(session)
         except Exception as err:
-            logger.error(f"Error: {err}")
+            logging.error(f"Error: {err}")
             raise
         finally:
             await session.close()
     
+    # Функция конвертации url в wall id для парсинга.
     @staticmethod
     async def get_wall_id_from_public_url(url: str) -> Optional[int]:
         try:
@@ -47,9 +47,10 @@ class VkFetch:
                             return check_id
                     return check_id
         except Exception as err:
-            logger.error(f"User failed input vk_wall url - {err}")
+            logging.error(f"User failed input vk_wall url - {err}")
             return None
-        
+
+    # Функция выдачи постов
     @tenacity.retry(wait=tenacity.wait_fixed(2), stop=tenacity.stop_after_attempt(2))
     async def fetch_public_wall(self, wall_id, fetch_count: int) -> List[Dict[str, Union[str, List]]]:
         """
@@ -100,15 +101,19 @@ class VkFetch:
                 fetch_result.append(item)
 
         return fetch_result
-# Оснотва парсинга группы вк
-async def get_last_posts(message,public,count_posts):
+
+# Выдача постов
+async def get_last_posts(public,count_posts):
     Session = VkFetch(vk.VK_TOKEN)
-    posts = await Session.fetch_public_wall('https://vk.com/sumirea',5)
-    for post in posts:
-        if re.search(vk.blackword,post['text']):
-            pass
-        else:
-            if post['media']:
-                await message.bot.send_message(message.from_user.id,post['text'] + '\n <a href="' + post['media']['photos'][0]+'">.</a>',parse_mode='HTML')
-            else:
-                await message.answer(post['text']+'\n')
+    posts = await Session.fetch_public_wall(public,count_posts)
+    return posts
+
+# Проверка актуальности постов
+async def check_new_post(public):
+    posts = await get_last_posts(public,1)
+    # Временное решение проверки актуальности
+    # ОЧЕНЬ КОСТЛИВОЕ и не поддерживает несколько группы
+    # Поэтому переделать надо будет
+    if posts != vk.last_posts_id:
+        vk.last_posts_id = posts
+        return posts

@@ -23,3 +23,4 @@ class vk():
     reqVer = ''
     vkDomain = ''
     update = ''
+    last_posts_id = 0 # Временное решение, потом удалить

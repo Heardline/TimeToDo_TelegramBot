@@ -1,4 +1,6 @@
 import asyncio
+from service.vk_parser.vk_main import check_new_post
+from config import vk
 import re
 import logging
 from aiogram import Bot, Dispatcher
@@ -40,6 +42,7 @@ async def set_bot_commands(bot: Bot):
 
 
 async def scheduler():
+    aioschedule.every(10).minutes.do(send_new_post)
     aioschedule.every().day.at("8:20").do(alert_lesson)
     aioschedule.every().day.at("10:30").do(alert_lesson)
     aioschedule.every().day.at("12:30").do(alert_lesson)
@@ -85,14 +88,26 @@ async def main():
         await dp.storage.wait_closed()
         await bot.session.close()
 
-# Уведомлялки за 10 минут до пары
+# Уведомлялки за 10 минут до пары 
 async def alert_lesson():
     students = await get_students(bot)
     for student in students:
         lesson = await get_next_lesson(bot,student.telegram_id)
         if lesson:
             await bot.send_message(student.telegram_id,f'💬 Через 10 минут начнется {lesson.name} {lesson.room} {lesson.type}',disable_notification=False)
-    
+
+# Уведомления о новом посте в группе ВК
+async def send_new_post(posts,bot):
+    if check_new_post('https://vk.com/sumirea'): 
+        students = await get_students(bot) # Необходима отдельная функция и настройки уведомления для студентов с выбором группы ВК
+        for student in students:
+            for post in posts:
+                if re.search(vk.blackword,post['text']):
+                    pass
+                else:
+                    if post['media']:
+                        await bot.send_message(student.telegram_id,post['text'] + '\n <a href="' + post['media']['photos'][0]+'">.</a>',parse_mode='HTML')
+
 if __name__ == '__main__':
     try:
         asyncio.run(main())
