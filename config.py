@@ -15,6 +15,7 @@ class db():
     table = ''
 class vk():
     isuse = True
+    blackword = '#sumirea_фотоплёнка|#радио_мирэач|#sumirea_новости|#sumirea_заставки|#sumirea_развлечения|#sumirea_поздравляет'
     VK_TOKEN = cf.VK_TOKEN
     skipads = True
     skipPostsWithCopyright = False
