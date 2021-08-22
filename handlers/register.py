@@ -1,12 +1,12 @@
 
-from states import RegisterState
+from utils.states import RegisterState
 from utils.db.db import Group, Student
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 
 from sqlalchemy import select
 
-from commands import get_student, menu
+from utils.func import get_student
 from config import Settings
 
 # /start
@@ -25,7 +25,6 @@ async def send_welcome(message: types.Message, state: FSMContext):
                 await message.reply(file.read(), parse_mode='HTML', disable_web_page_preview=True)
         else:
             await message.answer("<b> Привет, рад тебя видеть снова </b>", parse_mode='HTML', disable_web_page_preview=True)
-            await menu(message)
 
 # Внесение группы
 

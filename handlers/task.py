@@ -5,14 +5,14 @@ from aiogram.types.inline_keyboard import InlineKeyboardButton, InlineKeyboardMa
 from aiogram.types.reply_keyboard import ReplyKeyboardMarkup
 from sqlalchemy import select, delete, and_, update
 from aiogram.dispatcher import FSMContext
-from commands import get_student
+from utils.func import get_student
 
-from callback_data import task_callback
-from states import TaskState
+from utils.callback_data import task_callback
+from utils.states import TaskState
 from utils.db.db import Lesson, Task
 from aiogram import types
 import utils.time_lessons as time_lesson
-from simple_calendar import SimpleCalendar
+from utils.simple_calendar import SimpleCalendar
 
 # Меню задач
 

@@ -1,5 +1,4 @@
 import asyncio
-import click
 import re
 import logging
 from aiogram import Bot, Dispatcher
@@ -10,23 +9,19 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 import aioschedule
-from commands import register_commands,register_callbacks,get_users,get_next_lesson
+from handlers.commands import register_commands,register_callbacks
+from utils.func import get_student,get_next_lesson, get_students
 from utils.db.base import Base
 
 # Проверка загрузки конфига
 try:
     from config import db,Auth
 except ModuleNotFoundError:
-    click.echo(click.style(
-        "Config file not found!\n"
-        "Please create config.py file according to config.py.example",
-        fg='bright_red'))
+    logging.error(
+        "Config file not found!\n Please create config.py file according to config.py.example")
     exit()
 except ImportError as err:
-    var = re.match(r"cannot import name '(\w+)' from", err.msg).groups()[0]
-    click.echo(click.style(
-        f"{var} is not defined in the config file",
-        fg='bright_red'))
+    logging.error('Bot is not defined in the config file')
     exit()
 
 #pdb.update_data()
@@ -92,7 +87,7 @@ async def main():
 
 # Уведомлялки за 10 минут до пары
 async def alert_lesson():
-    students = await get_users(bot)
+    students = await get_students(bot)
     for student in students:
         lesson = await get_next_lesson(bot,student.telegram_id)
         if lesson:

@@ -3,11 +3,10 @@ from sqlalchemy import select, and_
 
 from utils.db.db import Lesson
 from aiogram import types
-from commands import get_student
+from utils.func import get_student
 import utils.time_lessons as time_lesson
 
 # Пары на сегодня
-
 async def scheduler_today(message: types.Message):
     Lesson_text = f"<b> {time_lesson.TodayToEmoji(0)} | {time_lesson.NumberOfMonth()} неделя. </b> \n"
     db_session = message.bot.get('db')
