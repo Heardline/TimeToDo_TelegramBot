@@ -1,7 +1,7 @@
 
-from sqlalchemy import select, and_
-
-from utils.db.db import Lesson
+from sqlalchemy import select, and_,func
+from datetime import datetime
+from utils.db.db import Lesson, Task
 from aiogram import types
 from utils.func import get_student
 import utils.time_lessons as time_lesson
@@ -28,6 +28,12 @@ async def scheduler_today(message: types.Message):
             k += 1
         if k == 0:
             Lesson_text = "<b>Сегодня нету пар </b> ✨🎉\n"
+        # Задачи
+        sql = select(Task).where(func.date(Task.time) == datetime.now().strftime("%Y-%m-%d"))
+        request = await session.execute(sql)
+        tasks = request.scalars()
+        for task in tasks:
+            Lesson_text += f'Задача: {task.name} {task.desc} {task.lesson}\n'
     await message.answer(Lesson_text, parse_mode='HTML', disable_web_page_preview=True)
 
 # Пары на завтра
