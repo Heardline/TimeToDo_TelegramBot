@@ -1,10 +1,11 @@
+import re
 from typing import Dict, List, Union, Optional
 from contextlib import asynccontextmanager
 
 import tenacity
 from aiovk import API, TokenSession
 from loguru import logger
-
+from config import vk
 class VkFetch:
     def __init__(self, token: str):
         self.token = token
@@ -19,15 +20,45 @@ class VkFetch:
             raise
         finally:
             await session.close()
-
+    
+    @staticmethod
+    async def get_wall_id_from_public_url(url: str) -> Optional[int]:
+        try:
+            screen_name, check_id = url.split("/")[-1], None
+            async with TokenSession(vk.VK_TOKEN) as session:
+                api = API(session)
+                wall_object = await api.utils.resolveScreenName(screen_name=screen_name)
+                if wall_object:
+                    return (
+                        -wall_object["object_id"]
+                        if wall_object["type"] in ["group", "page"]
+                        else wall_object["object_id"]
+                    )
+                else:
+                    if screen_name.startswith("id", 0):
+                        check_id = int(screen_name[2:])
+                    elif screen_name.startswith("public", 0):
+                        check_id = -int(screen_name[6:])
+                    elif screen_name.startswith("club", 0):
+                        check_id = -int(screen_name[4:])
+                    if check_id:
+                        check_data = await api.wall.get(owner_id=check_id, count=1)["items"]
+                        if check_data:
+                            return check_id
+                    return check_id
+        except Exception as err:
+            logger.error(f"User failed input vk_wall url - {err}")
+            return None
+        
     @tenacity.retry(wait=tenacity.wait_fixed(2), stop=tenacity.stop_after_attempt(2))
-    async def fetch_public_wall(self, wall_id: int, fetch_count: int) -> List[Dict[str, Union[str, List]]]:
+    async def fetch_public_wall(self, wall_id, fetch_count: int) -> List[Dict[str, Union[str, List]]]:
         """
         Get public vk data with wall.get method
         :param fetch_count:
         :param wall_id: vkontakte wall_id
         :return:
         """
+        wall_id = await self.get_wall_id_from_public_url(wall_id)
         fetch_result = []
         async with self._session() as session:
             received_records = await session.wall.get(owner_id=wall_id, count=fetch_count + 1, v=5.145)
@@ -69,3 +100,15 @@ class VkFetch:
                 fetch_result.append(item)
 
         return fetch_result
+
+async def get_last_posts(message):
+    Session = VkFetch(vk.VK_TOKEN)
+    posts = await Session.fetch_public_wall('https://vk.com/sumirea',5)
+    for post in posts:
+        if re.search(vk.blackword,post['text']):
+            pass
+        else:
+            if post['media']:
+                await message.bot.send_message(message.from_user.id,post['text'] + '\n <a href="' + post['media']['photos'][0]+'">.</a>',parse_mode='HTML')
+            else:
+                await message.answer(post['text']+'\n')
